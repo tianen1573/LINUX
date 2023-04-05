@@ -64,7 +64,7 @@ namespace TCP
                 }
                 if (size < 0) //读取失败
                 {
-                    std::cout << "read error" << std::endl;
+                    std::cout << "read error " << std::endl;
                     break;
                 }
             }
