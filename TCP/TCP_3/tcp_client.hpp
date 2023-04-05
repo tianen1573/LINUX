@@ -32,7 +32,7 @@ namespace TCP
                 //空输入重新读，否则一直阻塞，客户端写为空，服务器读不到东西，一直读，
                 //客户端写了之后需要读才能继续写，服务器读了之后才能不写，死锁了
                 if (req.empty())
-                
+
                     continue;
 
                 write(_sockfd, req.c_str(), req.size());
@@ -58,11 +58,15 @@ namespace TCP
         }
         void Start()
         {
-
-            if (_sock.Connect(_sockfd, _server_ip, _server_port))
+            bool ok = false;
+            while (!ok)
             {
-                Request(_server_ip, _server_port);
+                if (_sock.Connect(_sockfd, _server_ip, _server_port))
+                {
+                    ok = true;
+                }
             }
+            Request(_server_ip, _server_port);
             close(_sockfd);
 
             std::cout << "client end" << std::endl;
