@@ -16,6 +16,7 @@ namespace TCP
             //直到通信关闭
             while (true)
             {
+                //粘包问题
                 ssize_t size = read(sock, buffer, sizeof(buffer) - 1);
                 if (size > 0)
                 {
