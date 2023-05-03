@@ -3,6 +3,7 @@
 #include "TcpSocket.hpp"
 #include "log.hpp"
 #include "Epoll.hpp"
+#include "Protocol.hpp"
 
 #include <functional>
 
@@ -54,7 +55,9 @@ class TcpServer
 private: //静态全局变量
     static const uint16_t default_port = (uint16_t)8080;
     static const int gNum = 128;
-    using func_t = std::function<void(Connection *)>;
+
+    using func_t = std::function<void(Connection *)>;//回调函数类型
+    using callback_t = std::function<void (Connection*, std::string &request)>;//业务处理函数类型
 
 public: //六大函数
     TcpServer(const uint16_t &port = default_port)
@@ -86,54 +89,120 @@ public: //成员函数
     void Accepter(Connection *conn)
     {
 
-        //此时_listenSock文件上的读事件一定就绪了，有新连接到来
-        logMessage(DEBUG, "Accepter been called");
+        //此时_listenSock文件上的读事件一定就绪了，一定有新连接到来
+        // logMessage(DEBUG, "Accepter() been called");
+
         //获取链接
-        std::string clientIp;
-        uint16_t clientPort;
-        int sock = TCP::TcpSocket::Accept(_listenSock, &clientIp, &clientPort);
-        if (sock < 0)
+        //此时，我们必须循环获取，直到该次调用没有新连接到来，强制要求
+        while (true)
         {
-            logMessage(WARNING, "accept error");
-            return;
+            std::string clientIp;
+            uint16_t clientPort;
+            int accept_errno = 0;
+            int sock = TCP::TcpSocket::Accept(_listenSock, &clientIp, &clientPort, &accept_errno);
+            if (sock < 0)
+            {
+                if (accept_errno == EAGAIN || accept_errno == EWOULDBLOCK)
+                    break; //读取完毕，无新连接了
+                else if (accept_errno == EINTR)
+                    continue; //被信号中断，继续读取
+                else
+                {
+                    //失败
+                    logMessage(WARNING, "accept error, %d : %s", accept_errno, strerror(accept_errno));
+                    break;
+                }
+            }
+            //添加到Epoll模型
+            if (sock >= 0)
+            {
+                AddConnection(sock, std::bind(&TcpServer::Recver, this, std::placeholders::_1),
+                              std::bind(&TcpServer::Sender, this, std::placeholders::_1),
+                              std::bind(&TcpServer::Excepter, this, std::placeholders::_1));
+
+                logMessage(DEBUG, "accept success, get a new line success : [%s : %d]", clientIp.c_str(), sock);
+            }
         }
-        logMessage(DEBUG, "get a new line success : [%s : %d]", clientIp.c_str(), sock);
-
-        // //添加到Epoll模型
-        // if (Epoll::CtlEpoll(_epfd, EPOLL_CTL_ADD, sock, EPOLLIN))
-        // {
-        //     logMessage(DEBUG, "add listenSock to epoll success.");
-        // }
-        // else
-        // {
-        //     logMessage(ERROR, "add listenSock to epoll error.");
-        // }
     }
+    void Recver(Connection *conn)
+    {
+        // logMessage(DEBUG, "Recver() been called");
 
+        const int num = 1024;
+        bool err = false;
+        //--v1: 直接面向字节流，先进行常规读取
+        //v2: 循环读取，解决粘报，业务处理
+        while (true)
+        {
+            char buffer[num];
+
+            ssize_t n = recv(conn->_sock, buffer, sizeof(buffer) - 1, 0);
+            if (n < 0)
+            {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) //读完
+                    break;
+                else if (errno == EINTR) //被中断
+                    continue;
+                else //异常出错
+                {
+                    logMessage(ERROR, "recv error, %d : %s", errno, strerror(errno));
+                    conn->_except_cb(conn); //把异常交给回调函数处理
+                    err = true;
+                    break;
+                }
+            }
+            else
+            {
+                buffer[n] = 0;
+                conn->_inBuffer += buffer;//保存到独立的缓冲区
+            }
+        }//此时代表这一次把数据读完了，接收的是字节流，需要解码，模拟个网络计算器协议
+
+        logMessage(DEBUG, "conn->_inbuffer[sock: %d]: %s", conn->_sock, conn->_inBuffer.c_str());
+
+        //解码
+        if(!err)
+        {
+            std::vector<std::string> messages;//保存完整报文
+            SpliteMessage(conn->_inBuffer, &messages);//按协议切割，解决粘报问题
+
+            //此时msg一定是一个完整报文
+            for(auto &msg : messages)
+            {
+                _cb(conn, msg);//交付给上层处理
+            }
+        }
+    }
+    void Sender(Connection *conn)
+    {
+    }
+    void Excepter(Connection *conn)
+    {
+    }
 
     int LoopOnce()
     {
         int timeout = 1000;
         int n = _epoll.WaitEpoll(_revs, _revs_num, timeout);
 
-        for(int i = 0; i < n; ++ i)
+        for (int i = 0; i < n; ++i)
         {
             int sock = _revs[i].data.fd;
             uint32_t revents = _revs[i].events;
 
             //读事件
-            if(revents & EPOLLIN)
-            {   
+            if (revents & EPOLLIN)
+            {
                 //存在，并且具有合法的读事件的回调函数
-                if(IsConnectionExists(sock) && _connections[sock]->_recv_cb)
+                if (IsConnectionExists(sock) && _connections[sock]->_recv_cb)
                 {
                     _connections[sock]->_recv_cb(_connections[sock]);
                 }
             }
             //写事件
-            if(revents & EPOLLOUT)
+            if (revents & EPOLLOUT)
             {
-                if(IsConnectionExists(sock) && _connections[sock]->_send_cb)
+                if (IsConnectionExists(sock) && _connections[sock]->_send_cb)
                 {
                     _connections[sock]->_send_cb(_connections[sock]);
                 }
@@ -143,8 +212,9 @@ public: //成员函数
         }
     }
     //根据就绪的事件， 进行特定事件的派发
-    void Dispather()
+    void Dispather(callback_t cb)
     {
+        _cb = cb;
         //ET模式
         while (true)
         {
@@ -163,16 +233,16 @@ public: //成员函数
         //0. 将文件设置为非阻塞状态
         TCP::TcpSocket::SetNonBlock(sock);
         //1. 创建Connection对象
-        Connection *conn = new Connection(_listenSock);
+        Connection *conn = new Connection(sock);
         //2. 设置回调
         conn->SetHandler(recv_cb, send_cb, except_cb);
         //3. 设置回值指针
         conn->_tsvr = this;
         //4. 将sock[]添加到_epoll中
         // a. sock添加到epoll模型
-        _epoll.AddSockToEpoll(_listenSock, EPOLLIN | EPOLLET); //任何多路转接服务器，只会默认关心读事件，且默认是LT模式，写事件按需关心
+        _epoll.AddSockToEpoll(sock, EPOLLIN | EPOLLET); //任何多路转接服务器，只会默认关心读事件，且默认是LT模式，写事件按需关心
         // b. 建立映射
-        _connections.insert({_listenSock, conn});
+        _connections.insert({sock, conn});
     }
 
 private: //成员变量
@@ -186,9 +256,12 @@ private: //成员变量
     //管理sock与Connection的映射
     std::unordered_map<int, Connection *> _connections; //sock : connection
 
-    //
+    //就绪事件
     struct epoll_event *_revs;
     int _revs_num;
+
+    //上层业务处理函数
+    callback_t _cb;
 };
 const uint16_t TcpServer::default_port;
 const int TcpServer::gNum;

@@ -47,7 +47,7 @@ namespace TCP
                 assert(false);
             }
 
-            //不等待
+            //不等待2TMSL
             int opt = 1;
             setsockopt(sock, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
 
@@ -84,7 +84,7 @@ namespace TCP
         // const &输入
         // * 输出
         // & 输入&&输出
-        static int Accept(int listenSock, std::string *ip, uint16_t *port)
+        static int Accept(int listenSock, std::string *ip, uint16_t *port, int *accept_errno)
         {
             // 4. 获取连接， 获取通信套接字
             // UDP不需要连接，服务端是一对多的
@@ -96,7 +96,8 @@ namespace TCP
             int serviceSock = accept(listenSock, (sockaddr *)&src, &len);
             if (serviceSock < 0)
             {
-                assert(false);
+                *accept_errno = errno;
+                return -1;
             }
 
             //关系通信方身份信息
