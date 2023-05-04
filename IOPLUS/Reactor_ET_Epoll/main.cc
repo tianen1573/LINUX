@@ -54,7 +54,11 @@ void NetCal(Connection* conn, std::string &request)
     //4. 交给服务器
     conn->_outBuffer += sendstr;
 
-    //5. 服务器发送
+    //5. 服务器发送 -- 需要开启epoll的写事件权限EPOLLOUT
+    //每次打开某个文件的写权限时，都会触发一次epoll
+    //通过tsvr指针触发一次epoll模型
+    conn->_tsvr->EnableReadWrite(conn, true, true);
+
 
 }
 

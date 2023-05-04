@@ -19,12 +19,31 @@ public:
     }
 
 public:
+    
+    bool CtrlEpoll(int sock, uint32_t events)
+    {
+        events |= EPOLLET;
+        struct epoll_event ev;
+
+        ev.data.fd = sock;
+        ev.events = events;
+
+        int n = epoll_ctl(_epfd, EPOLL_CTL_MOD, sock, &ev);//此时会触发一次epoll模型，返回该文件写事件就绪
+        assert(n != -1), (void)n;
+
+        return n == 0;
+    }
     void CreateEpoll()
     {
         _epfd = epoll_create(gSize);
 
         if(_epfd < 0)
             exit(5);//失败直接终止
+    }
+    bool DelFromEpoll(int sock)
+    {
+        int n = epoll_ctl(_epfd, EPOLL_CTL_DEL, sock, nullptr);
+        return n == 0;
     }
     void AddSockToEpoll(int sock, uint32_t events)
     {
