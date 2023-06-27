@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <unistd.h>
-#include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <assert.h>
 
@@ -16,151 +17,134 @@
 #define APPEND_REDIR 3
 #define NONE_REDIR 0
 
-//保存完整的命令行字符串
 char cmd_line[NUM];
-//保存打散之后的命令行字符串
 char *g_argv[SIZE];
-//写一个环境变量的buffer，用来测试
 char g_myval[64];
-//保存命令的输出状态
 int redir_status = NONE_REDIR;
 
 char *CheckRedir(char *start)
 {
     assert(start);
-    char *end = start + strlen(start) - 1; //ls -a -l\0
+    char *end = start + strlen(start) - 1;
+
+    //确定命令输出状态
     while (end >= start)
     {
-        if (*end == '>')
+        //输出重定向
+        if ('>' == *end)
         {
-            if (*(end - 1) == '>')
+            //追加重定向
+            if ('>' == *(end - 1))
             {
                 redir_status = APPEND_REDIR;
                 *(end - 1) = '\0';
-                end++;
+                end ++;
                 break;
             }
             redir_status = OUTPUT_REDIR;
             *end = '\0';
-            end++;
+            end ++;
             break;
-            //ls -a -l>myfile.txt
-            //ls -a -l>>myfile.txt
         }
-        else if (*end == '<')
+        //输入重定向
+        else if ('<' == *end)
         {
-            //cat < myfile.txt,输入
             redir_status = INPUT_REDIR;
             *end = '\0';
-            end++;
+            end ++;
             break;
         }
         else
         {
-            end--;
+            --end;
         }
     }
+
+    //返回文件路径
     if (end >= start)
     {
-        return end; //要打开的文件
+        return end;
     }
     else
     {
         return NULL;
     }
 }
-// shell 运行原理 ： 通过让子进程执行命令，父进程等待&&解析命令
+
 int main()
 {
-    extern char **environ;//拿取全局的环境变量
-
-    //0. 命令行解释器，一定是一个常驻内存的进程，不退出
+    //常驻进程
     while (1)
     {
-        //1. 打印出提示信息 [root@localhost myshell]#
-        printf("[root@我的主机 myshell]# ");
-        fflush(stdout);//立即刷新
-        memset(cmd_line, '\0', sizeof cmd_line);//重置数组
+        printf("[root@myShell]# ");
+        fflush(stdout);//行刷新策略，上一个printf语句不会被立即刷新，所以需要手动
+        memset(cmd_line, 0, sizeof cmd_line);//重置数组
 
-        //2. 获取用户的键盘输入[输入的是各种指令和选项: "ls -a -l -i"]
-        // "ls -a -l>log.txt"
-        // "ls -a -l>>log.txt"
-        // "ls -a -l<log.txt"
-        if (fgets(cmd_line, sizeof cmd_line, stdin) == NULL)//文本IO函数
+        if (fgets(cmd_line, sizeof cmd_line, stdin) == NULL)//获取一行命令
         {
             continue;
         }
-        cmd_line[strlen(cmd_line) - 1] = '\0';
-        // 2.1: 分析是否有重定向
-        //"ls -a -l>log.txt" -> "ls -a -l\0log.txt"
-        //"ls -a -l -i\n\0"
-        char *sep = CheckRedir(cmd_line);
-        //printf("echo: %s\n", cmd_line);
+        cmd_line[strlen(cmd_line) - 1] = '\0';//添加'\0'
 
-        //3. 命令行字符串解析：
-        //"ls -a -l -i" -> "ls" "-a" "-i"
-        // export myval=105
-        g_argv[0] = strtok(cmd_line, SEP); //第一次调用，要传入原始字符串
+        char *sep = CheckRedir(cmd_line);//检查命令
+        g_argv[0] = strtok(cmd_line, SEP);//提取指令
         int index = 1;
-        if (strcmp(g_argv[0], "ls") == 0)
+        //判断命令的类型
+        if(strcmp(g_argv[0], "ls") == 0)
         {
-            g_argv[index++] = "--color=auto";
+            g_argv[index ++ ] = "--color=auto";
         }
-        if (strcmp(g_argv[0], "ll") == 0)
+        if(strcmp(g_argv[0], "ll") == 0)
         {
             g_argv[0] = "ls";
-            g_argv[index++] = "-l";
-            g_argv[index++] = "--color=auto";
+            g_argv[index ++ ] = "-l";
+            g_argv[index ++ ] = "--color=auto";
         }
-        while (g_argv[index++] = strtok(NULL, SEP)); //第二次调用，如果还要解析原始字符串,传入NULL，则会继续返回上次的字符串解析结果
-        if (strcmp(g_argv[0], "export") == 0 && g_argv[1] != NULL)
+
+        while(g_argv[index ++ ] = strtok(NULL, SEP));
+        
+        if(strcmp(g_argv[0], "export") == 0 && g_argv[1] != NULL)
         {
             strcpy(g_myval, g_argv[1]);
-            int ret = putenv(g_myval);//添加环境变量
-            if (ret == 0)
+            int ret = putenv(g_myval);
+            if(ret == 0)
                 printf("%s export success\n", g_argv[1]);
-            //for(int i = 0; environ[i]; i++)
-            //    printf("%d: %s\n", i, environ[i]);
             continue;
         }
-        if (strcmp(g_argv[0], "rm") == 0 || strcmp(g_argv[0], "rmdir") == 0)//特判rm/rmdir
+        if(strcmp(g_argv[0], "rm") == 0 || strcmp(g_argv[0], "rmdir") == 0)//特判rm and rmdir
         {
             printf("sorry, cant support rm and rmdir\n");
             continue;
         }
-
-        //for debug
-        //for(index = 0; g_argv[index]; index++)
-        //    printf("g_argv[%d]: %s\n", index, g_argv[index]);
-
-        //4.内置命令, 让父进程（shell）自己执行的命令，我们叫做内置命令，内建命令本质其实就是shell中的一个函数调用
-        if (strcmp(g_argv[0], "cd") == 0) //not child execute, father execute
+        if(strcmp(g_argv[0], "cd") == 0)
         {
-            if (g_argv[1] != NULL)
-                chdir(g_argv[1]); //cd path, cd .. //只影响进程内部的工作目录
+            if(g_argv[1] != NULL)
+                chdir(g_argv[1]);
+            printf("workdir is %s, now.\n", g_argv[1]);
+
             continue;
         }
 
-        //5. fork()
+
         pid_t id = fork();
-        if (id == 0) //child
+        if(id == 0)
         {
+            //重定向
             if (sep != NULL)
             {
                 int fd = -1;
-                //说明命令曾经有重定向
+
                 switch (redir_status)
                 {
-                case INPUT_REDIR:
+                case INPUT_REDIR://<
                     fd = open(sep, O_RDONLY);
                     dup2(fd, 0);
                     break;
-                case OUTPUT_REDIR:
+                case OUTPUT_REDIR://>
                     fd = open(sep, O_WRONLY | O_TRUNC | O_CREAT, 0666);
                     dup2(fd, 1);
                     break;
                 case APPEND_REDIR:
-                    //TODO
                     fd = open(sep, O_WRONLY | O_APPEND | O_CREAT, 0666);
                     dup2(fd, 1);
                     break;
@@ -169,20 +153,17 @@ int main()
                     break;
                 }
             }
-            // printf("下面功能让子进程进行的\n");
-            // printf("child, MYVAL: %s\n", getenv("MYVAL"));
-            // printf("child, PATH: %s\n", getenv("PATH"));
-            //cd cmd , current child path
-            //execvpe(g_argv[0], g_argv, environ); // ls -a -l -i
-            //不是说好的程序替换会替换代码和数据吗？？
-            //环境变量相关的数据，会被替换吗？？没有！
-            execvp(g_argv[0], g_argv); // ls -a -l -i
+            //进程替换
+            execvp(g_argv[0], g_argv);
             exit(1);
         }
-        //father
+
         int status = 0;
         pid_t ret = waitpid(id, &status, 0);
-        if (ret > 0)
+        if(ret > 0)
             printf("exit code: %d\n", WEXITSTATUS(status));
+
     }
+
+    return 0;
 }
