@@ -1,0 +1,2 @@
+I want cout to stdout(monitor).
+I want cout to stdout(monitor).

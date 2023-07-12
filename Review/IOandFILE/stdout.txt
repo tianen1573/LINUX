@@ -1,0 +1,2 @@
+I am stdout!
+I want cin to stdout(monitor).
