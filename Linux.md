@@ -3104,14 +3104,14 @@ inode是关于文件的存储的，它在文件所在的块组里，在磁盘中
 >     	gcc -c mymath.c -o mymath.o
 >     myprint.o:myprint.c
 >     	gcc -c myprint.c -o myprint.o
->                                                                                                                                                                                                                                     
+>                                                                                                                                                                                                                                         
 >     .PHONY:output
 >     output:
 >     	mkdir -p output/lib
 >     	mkdir -p output/include
 >     	cp -rf *.h output/include
 >     	cp -rf *.a output/lib
->                                                                                                                                                                                                                                     
+>                                                                                                                                                                                                                                         
 >     .PHONY:clean
 >     clean:
 >     	rm -rf *.o libTest.a output
@@ -3186,7 +3186,7 @@ inode是关于文件的存储的，它在文件所在的块组里，在磁盘中
 >     	gcc -fPIC -c mymath.c -o mymath.o
 >     myprint.o:myprint.c
 >     	gcc -fPIC -c myprint.c -o myprint.o
->                                                                                                                                                                                                                                     
+>                                                                                                                                                                                                                                         
 >     .PHONY:output
 >     output:
 >     	mkdir -p output/lib
@@ -3194,7 +3194,7 @@ inode是关于文件的存储的，它在文件所在的块组里，在磁盘中
 >     	cp -rf *.h output/include
 >     	cp -rf *.so output/lib
 >     	rm -r *.o *.so
->                                                                                                                                                                                                                                     
+>                                                                                                                                                                                                                                         
 >     .PHONY:clean
 >     clean:
 >     	rm -rf *.o libTest.a output
@@ -5038,10 +5038,11 @@ while (1){
 
 从这张图可以看出，使用共享内存进行通信，将一个文件从一个进程传输到另一个进程只需要进行两次拷贝操作：
 
-从输入文件到共享内存。
+- 从输入文件到共享内存。
 
 - 从共享内存到输出文件。
-- 所以共享内存是所有进程间通信方式中最快的一种通信方式，因为该通信方式需要进行的拷贝次数最少。
+
+所以共享内存是所有进程间通信方式中最快的一种通信方式，因为该通信方式需要进行的拷贝次数最少。
 
 但是**共享内存也是有缺点的，我们知道管道是自带同步与互斥机制的，但是共享内存并没有提供任何的保护机制，包括同步与互斥。**
 
