@@ -225,13 +225,13 @@ echo "-l -a -i" | ls//ls接受，但不理会
 echo "-l -a -i" | xargs ls//将管道的输出结果作为命令行参数交给后边程序
 ```
 
-##### zip/unzio ：压缩/解压
+##### zip/unzip ：压缩/解压
 
 ```
 zip 压缩文件名 待压缩文件//压缩文件
 zip -r 压缩目录名 待压缩目录//压缩整个目录
 unzip 待解压文件//默认解压至当前文件夹
-unzio 代解压文件 -d 指定路径//解压至指定路径
+unzip 代解压文件 -d 指定路径//解压至指定路径
 ```
 
 ##### tar ：解压/压缩
@@ -3104,14 +3104,14 @@ inode是关于文件的存储的，它在文件所在的块组里，在磁盘中
 >     	gcc -c mymath.c -o mymath.o
 >     myprint.o:myprint.c
 >     	gcc -c myprint.c -o myprint.o
->                                                                                                                                                                                                                                         
+>                                                                                                                                                                                                                                             
 >     .PHONY:output
 >     output:
 >     	mkdir -p output/lib
 >     	mkdir -p output/include
 >     	cp -rf *.h output/include
 >     	cp -rf *.a output/lib
->                                                                                                                                                                                                                                         
+>                                                                                                                                                                                                                                             
 >     .PHONY:clean
 >     clean:
 >     	rm -rf *.o libTest.a output
@@ -3186,7 +3186,7 @@ inode是关于文件的存储的，它在文件所在的块组里，在磁盘中
 >     	gcc -fPIC -c mymath.c -o mymath.o
 >     myprint.o:myprint.c
 >     	gcc -fPIC -c myprint.c -o myprint.o
->                                                                                                                                                                                                                                         
+>                                                                                                                                                                                                                                             
 >     .PHONY:output
 >     output:
 >     	mkdir -p output/lib
@@ -3194,7 +3194,7 @@ inode是关于文件的存储的，它在文件所在的块组里，在磁盘中
 >     	cp -rf *.h output/include
 >     	cp -rf *.so output/lib
 >     	rm -r *.o *.so
->                                                                                                                                                                                                                                         
+>                                                                                                                                                                                                                                             
 >     .PHONY:clean
 >     clean:
 >     	rm -rf *.o libTest.a output
