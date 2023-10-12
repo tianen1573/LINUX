@@ -3104,14 +3104,14 @@ inode是关于文件的存储的，它在文件所在的块组里，在磁盘中
 >     	gcc -c mymath.c -o mymath.o
 >     myprint.o:myprint.c
 >     	gcc -c myprint.c -o myprint.o
->                                                                                                                                                                                                                                             
+>                                                                                                                                                                                                                                                 
 >     .PHONY:output
 >     output:
 >     	mkdir -p output/lib
 >     	mkdir -p output/include
 >     	cp -rf *.h output/include
 >     	cp -rf *.a output/lib
->                                                                                                                                                                                                                                             
+>                                                                                                                                                                                                                                                 
 >     .PHONY:clean
 >     clean:
 >     	rm -rf *.o libTest.a output
@@ -3186,7 +3186,7 @@ inode是关于文件的存储的，它在文件所在的块组里，在磁盘中
 >     	gcc -fPIC -c mymath.c -o mymath.o
 >     myprint.o:myprint.c
 >     	gcc -fPIC -c myprint.c -o myprint.o
->                                                                                                                                                                                                                                             
+>                                                                                                                                                                                                                                                 
 >     .PHONY:output
 >     output:
 >     	mkdir -p output/lib
@@ -3194,7 +3194,7 @@ inode是关于文件的存储的，它在文件所在的块组里，在磁盘中
 >     	cp -rf *.h output/include
 >     	cp -rf *.so output/lib
 >     	rm -r *.o *.so
->                                                                                                                                                                                                                                             
+>                                                                                                                                                                                                                                                 
 >     .PHONY:clean
 >     clean:
 >     	rm -rf *.o libTest.a output
